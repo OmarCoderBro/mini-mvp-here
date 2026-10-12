@@ -1,38 +1,27 @@
-# HERE Road Image Quality Checker (MVP)
+# Road Image Quality Checker MVP - Omar Shatat
 
-A small portfolio demo inspired by the HERE Technologies Software Engineer
-Intern posting. It flags road images that may be too blurry or poorly lit
-before they'd enter a computer-vision pipeline. This is an independent demo,
-not a HERE product and not a claim about any team's real system.
+Synthetic road image screening using React → FastAPI → OpenCV.
 
-## What it does
+Upload up to 20 road images and each is labeled "Usable" or "Review needed" based on simple blur and brightness checks, before it would enter a computer-vision pipeline. These are screening heuristics, not a guarantee an image suits a real ML pipeline.
 
-Upload up to 20 road images. The backend decodes each one with OpenCV and
-computes two heuristic signals:
+Independent portfolio project, not affiliated with HERE Technologies. No images or results are stored.
 
-- **Blur** — variance of the Laplacian (low variance suggests a blurry image).
-- **Brightness** — mean grayscale intensity (very low/high suggests
-  under/over-exposure).
+## Architecture
 
-Each image is labeled `Usable` or `Review needed` with reason tags. These are
-screening signals, not a guarantee that an image is suitable for a machine
-learning pipeline.
-
-## Run with Docker Compose (recommended)
-
-```bash
-docker compose up --build
+```
+React page --(upload images)--> FastAPI /analyze --> OpenCV scoring --> Usable / Review needed
 ```
 
-- Frontend: http://localhost:5173
-- Backend: http://localhost:8000 (health check at `/health`)
+- **FastAPI** (`POST /analyze`, `GET /health`) validates file type, size, and batch limit, then analyzes each image independently so one bad file doesn't fail the batch.
+- **OpenCV** decodes each image and computes two scores: blur (variance of the Laplacian) and brightness (mean grayscale).
+- **Thresholds** in `backend/app/config.py` turn the scores into labels with reasons ("likely blurry", "too dark", "too bright").
+- **React + TypeScript (Vite)** is a single page for uploading images and viewing results. Sample photos are in `samples/`.
 
-Stop with `docker compose down`.
+## Run locally
 
-## Run locally without Docker
+Requires Python 3 and Node.js.
 
-Backend:
-
+**1. Start the API** (one terminal, from `backend/`)
 ```bash
 cd backend
 python3 -m venv .venv
@@ -41,32 +30,22 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-Frontend (in a second terminal):
-
+**2. Start the frontend** (second terminal, from `frontend/`)
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-Then open http://localhost:5173.
+Open the URL Vite prints (normally http://localhost:5173), then upload images from `samples/`. Check the API at http://localhost:8000/health.
 
-## Running tests
+**Stop:** Ctrl+C both terminals.
 
-```bash
-cd backend
-source .venv/bin/activate
-python -m pytest -v
-```
+## Troubleshooting Tips for this MVP
+- **If Port 8000 is still in use:**
+`kill $(lsof -nP -tiTCP:8000 -sTCP:LISTEN)`.
+- **To check if its running on there:**
+`lsof -nP -iTCP:5173 -sTCP:LISTEN`.
 
-All 11 tests cover: blur/brightness scoring on synthetic images, per-file
-error handling for invalid images, batch-size and file-size limits, and the
-documented API response fields.
-
-## Limitations
-
-- Blur and brightness thresholds are simple heuristics, tuned for a demo —
-  not validated against real-world road imagery or any ML suitability
-  criteria.
-- No images or results are stored; each request is analyzed and discarded.
-- Scoped intentionally: no accounts, no database, no cloud deployment.
+- **Vite uses a different port (e.g. 5174):** the API only allows `http://localhost:5173` for CORS. Stop whatever holds 5173 and restart the frontend so it takes that port.
+- **Page can't reach the API:** confirm http://localhost:8000/health responds.
